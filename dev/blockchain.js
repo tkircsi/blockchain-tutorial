@@ -1,8 +1,11 @@
 const SHA256 = require('sha256');
 
-function Blockchain() {
+function Blockchain(currentNodeUrl) {
   this.chain = [];
   this.pendingTransactions = [];
+  this.currentNodeUrl = currentNodeUrl;
+  this.networkNodes = new Set();
+  this.networkNodes.add(currentNodeUrl);
 
   this.pendingTransactions.push({
     amount: 10,
@@ -67,6 +70,14 @@ Blockchain.prototype.proofOfWork = function(
     hash = this.hashBlock(previousBlockHash, currentBlockData, nonce);
   }
   return nonce;
+};
+
+Blockchain.prototype.registerNewNodeUrl = function(newNodeUrl) {
+  this.networkNodes.add(newNodeUrl);
+};
+
+Blockchain.prototype.getNetworkNodes = function() {
+  return Array.from(this.networkNodes.keys());
 };
 
 module.exports = Blockchain;
