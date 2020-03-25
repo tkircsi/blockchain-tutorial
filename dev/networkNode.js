@@ -14,7 +14,7 @@ const nodeAddress = uuid
   .join('');
 
 const BC = new Blockchain(nodeUrl);
-console.log(JSON.stringify(BC, null, 4));
+// console.log(JSON.stringify(BC, null, 4));
 // Load env vars
 dotenv.config({ path: './dev/config.env' });
 const app = express();
@@ -64,28 +64,78 @@ app.post('/register-and-broadcast-node', async (req, res) => {
   const networkNodes = BC.getNetworkNodes();
   networkNodes.forEach(async networkNodeUrl => {
     try {
-      // Do not broadcast to itself and to the new node
-      if (networkNodeUrl === nodeUrl || networkNodeUrl === newNodeUrl) return;
-      const body = { newNodeUrl };
-      const header = {
-        'Content-Type': 'application/json'
-      };
-      const res = await axios.post(
-        networkNodeUrl + '/register-node',
-        body,
-        header
-      );
+      // Current node do not need register
+      if (networkNodeUrl !== nodeUrl) {
+        let body = { newNodeUrl };
+        const header = {
+          'Content-Type': 'application/json'
+        };
+        // Register to all other node except the new one
+        if (newNodeUrl !== networkNodeUrl) {
+          let response = await axios.post(
+            networkNodeUrl + '/register-node',
+            body,
+            header
+          );
+        } else {
+          // Bulk register the new node
+          body = {
+            networkNodes
+          };
+
+          response = await axios.post(
+            newNodeUrl + '/register-node-bulk',
+            body,
+            header
+          );
+        }
+      }
     } catch (err) {
       console.error(err);
+      res.status(500).json({
+        success: false
+      });
     }
+  });
+  console.log(`Network nodes: ${BC.getNetworkNodes()}`);
+  res.status(200).json({
+    success: true
   });
 });
 
 app.post('/register-node', async (req, res) => {
-  console.log(req.body);
+  try {
+    const { newNodeUrl } = req.body;
+    BC.registerNewNodeUrl(newNodeUrl);
+    console.log(`Network nodes: ${BC.getNetworkNodes()}`);
+
+    res.status(200).json({
+      success: true
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
 });
 
-app.post('/register-node-bulk', async (req, res) => {});
+app.post('/register-node-bulk', async (req, res) => {
+  try {
+    const { networkNodes } = req.body;
+    networkNodes.forEach(async nodeUrl => {
+      BC.registerNewNodeUrl(nodeUrl);
+    });
+    console.log(`Network nodes: ${BC.getNetworkNodes()}`);
+    res.status(200).json({
+      success: true
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false
+    });
+  }
+});
 
 app.get('/network-nodes', async (req, res) => {
   const networkNodes = BC.getNetworkNodes();
