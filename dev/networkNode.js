@@ -7,13 +7,13 @@ const uuid = require('uuid');
 const axios = require('axios');
 
 const PORT = process.argv[2];
-const nodeUrl = process.argv[3];
+const currentNodeUrl = process.argv[3];
 const nodeAddress = uuid
   .v1()
   .split('-')
   .join('');
 
-const BC = new Blockchain(nodeUrl);
+const BC = new Blockchain(currentNodeUrl);
 // console.log(JSON.stringify(BC, null, 4));
 // Load env vars
 dotenv.config({ path: './dev/config.env' });
@@ -30,14 +30,6 @@ app.get('/blockchain', async (req, res) => {
   res.status(200).json({
     success: true,
     data: BC
-  });
-});
-
-app.post('/transaction', async (req, res) => {
-  BC.createNewTransaction(req.body);
-  res.status(200).json({
-    success: true,
-    data: req.body
   });
 });
 
@@ -65,7 +57,7 @@ app.post('/register-and-broadcast-node', async (req, res) => {
   networkNodes.forEach(async networkNodeUrl => {
     try {
       // Current node do not need register
-      if (networkNodeUrl !== nodeUrl) {
+      if (networkNodeUrl !== currentNodeUrl) {
         let body = { newNodeUrl };
         const header = {
           'Content-Type': 'application/json'
@@ -142,6 +134,42 @@ app.get('/network-nodes', async (req, res) => {
   res.status(200).json({
     networkNodes: networkNodes
   });
+});
+
+app.post('/transaction', async (req, res) => {
+  try {
+    const { newTx } = req.body;
+    BC.addTransactionToPendndingTransactions(newTx);
+    res.status(200).json({
+      success: true
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+app.post('/transaction/broadcast', async (req, res) => {
+  try {
+    const { newTx } = req.body;
+    const tx = BC.createNewTransaction(newTx);
+    BC.addTransactionToPendndingTransactions(tx);
+    BC.getNetworkNodes().forEach(nodeUrl => {
+      if (nodeUrl !== currentNodeUrl) {
+        axios.post(nodeUrl + '/transaction', { newTx: tx });
+      }
+    });
+    res.status(200).json({
+      success: true
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
 });
 
 app.get('/', async (req, res) => {
