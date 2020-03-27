@@ -34,26 +34,71 @@ app.get('/blockchain', async (req, res) => {
 });
 
 app.get('/mine', async (req, res) => {
-  BC.createNewTransaction({
-    amount: 12.5,
-    sender: null,
-    recipient: nodeAddress
-  });
+  try {
+    const rewardTx = BC.createNewTransaction({
+      amount: 12.5,
+      sender: null,
+      recipient: nodeAddress
+    });
+    //BC.addTransactionToPendndingTransactions(rewardTx);
+    await axios.post(currentNodeUrl + '/transaction/broadcast', {
+      newTx: rewardTx
+    });
 
-  const previousBlockHash = BC.getLastBlock().hash;
-  const nonce = BC.proofOfWork(previousBlockHash, BC.pendingTransactions);
-  const hash = BC.hashBlock(previousBlockHash, BC.pendingTransactions, nonce);
-  const newBlock = BC.createNewBlock(nonce, previousBlockHash, hash);
-  res.status(200).json({
-    success: true,
-    block: newBlock
-  });
+    const previousBlockHash = BC.getLastBlock().hash;
+    const nonce = BC.proofOfWork(previousBlockHash, BC.pendingTransactions);
+    const hash = BC.hashBlock(previousBlockHash, BC.pendingTransactions, nonce);
+    const newBlock = BC.createNewBlock(nonce, previousBlockHash, hash);
+
+    const networkNodes = BC.getNetworkNodes();
+    networkNodes.forEach(async networkNodeUrl => {
+      if (networkNodeUrl !== currentNodeUrl) {
+        await axios.post(networkNodeUrl + '/receive-new-block', { newBlock });
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      block: newBlock
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false
+    });
+  }
+});
+
+app.post('/receive-new-block', async (req, res) => {
+  try {
+    const { newBlock } = req.body;
+    const lastBlock = BC.getLastBlock();
+    const isCorrectHash = lastBlock.hash === newBlock.previousBlockHash;
+
+    if (isCorrectHash) {
+      BC.addNewBlock(newBlock);
+      BC.clearPendingTransactions();
+      res.status(200).json({
+        success: true
+      });
+    } else {
+      res.status(400).json({
+        success: false
+      });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false
+    });
+  }
 });
 
 app.post('/register-and-broadcast-node', async (req, res) => {
   const { newNodeUrl } = req.body;
   BC.registerNewNodeUrl(newNodeUrl);
   const networkNodes = BC.getNetworkNodes();
+
   networkNodes.forEach(async networkNodeUrl => {
     try {
       // Current node do not need register
@@ -64,22 +109,13 @@ app.post('/register-and-broadcast-node', async (req, res) => {
         };
         // Register to all other node except the new one
         if (newNodeUrl !== networkNodeUrl) {
-          let response = await axios.post(
-            networkNodeUrl + '/register-node',
-            body,
-            header
-          );
+          await axios.post(networkNodeUrl + '/register-node', body, header);
         } else {
           // Bulk register the new node
           body = {
             networkNodes
           };
-
-          response = await axios.post(
-            newNodeUrl + '/register-node-bulk',
-            body,
-            header
-          );
+          await axios.post(newNodeUrl + '/register-node-bulk', body, header);
         }
       }
     } catch (err) {
@@ -156,9 +192,9 @@ app.post('/transaction/broadcast', async (req, res) => {
     const { newTx } = req.body;
     const tx = BC.createNewTransaction(newTx);
     BC.addTransactionToPendndingTransactions(tx);
-    BC.getNetworkNodes().forEach(nodeUrl => {
+    BC.getNetworkNodes().forEach(async nodeUrl => {
       if (nodeUrl !== currentNodeUrl) {
-        axios.post(nodeUrl + '/transaction', { newTx: tx });
+        await axios.post(nodeUrl + '/transaction', { newTx: tx });
       }
     });
     res.status(200).json({

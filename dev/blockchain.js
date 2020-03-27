@@ -16,7 +16,7 @@ function Blockchain(currentNodeUrl) {
   this.createNewBlock(0, '0000', this.hashBlock('0000', 'Genesis Bloc', 0));
 }
 
-Blockchain.prototype.createNewBlock = function(nonce, previusBlockHash, hash) {
+Blockchain.prototype.createNewBlock = function(nonce, previousBlockHash, hash) {
   const newBlock = {
     timestamp: Date.now(),
     transactions: this.pendingTransactions.splice(
@@ -25,12 +25,16 @@ Blockchain.prototype.createNewBlock = function(nonce, previusBlockHash, hash) {
     ),
     nonce,
     hash,
-    previusBlockHash
+    previousBlockHash
   };
 
-  this.chain.push(newBlock);
+  this.addNewBlock(newBlock);
 
   return newBlock;
+};
+
+Blockchain.prototype.addNewBlock = function(newBlock) {
+  this.chain.push(newBlock);
 };
 
 Blockchain.prototype.getLastBlock = function() {
@@ -56,6 +60,10 @@ Blockchain.prototype.createNewTransaction = function({
 
 Blockchain.prototype.addTransactionToPendndingTransactions = function(newTx) {
   this.pendingTransactions.push(newTx);
+};
+
+Blockchain.prototype.clearPendingTransactions = function() {
+  this.pendingTransactions = [];
 };
 
 Blockchain.prototype.hashBlock = function(
