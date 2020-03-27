@@ -1,5 +1,6 @@
 const SHA256 = require('sha256');
 const uuid = require('uuid');
+const _ = require('lodash');
 
 function Blockchain(currentNodeUrl) {
   this.chain = [];
@@ -13,7 +14,11 @@ function Blockchain(currentNodeUrl) {
     sender: '',
     recipient: 'Tibor'
   });
-  this.createNewBlock(0, '0000', this.hashBlock('0000', 'Genesis Bloc', 0));
+  this.genesisBlock = this.createNewBlock(
+    0,
+    '0000',
+    this.hashBlock('0000', 'Genesis Bloc', 0)
+  );
 }
 
 Blockchain.prototype.createNewBlock = function(nonce, previousBlockHash, hash) {
@@ -93,6 +98,32 @@ Blockchain.prototype.registerNewNodeUrl = function(newNodeUrl) {
 
 Blockchain.prototype.getNetworkNodes = function() {
   return Array.from(this.networkNodes.keys());
+};
+
+Blockchain.prototype.chainIsValid = function(blockchain) {
+  const gen = { ...this.genesisBlock };
+  delete gen.timestamp;
+  const gen_other = { ...blockchain[0] };
+  delete gen_other.timestamp;
+  const genesisIsValid = _.isEqual(gen, gen_other);
+
+  if (!genesisIsValid) return false;
+
+  for (let i = 1; i < blockchain.length; i++) {
+    const currentBlock = blockchain[i];
+    const previousBlock = blockchain[i - 1];
+    const blockHash = this.hashBlock(
+      previousBlock['hash'],
+      currentBlock['transactions'],
+      currentBlock['nonce']
+    );
+
+    if (blockHash.substring(0, 4) !== '0000') return false;
+
+    if (currentBlock['previousBlockHash'] !== previousBlock['hash'])
+      return false;
+  }
+  return true;
 };
 
 module.exports = Blockchain;
