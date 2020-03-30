@@ -208,12 +208,63 @@ app.post('/transaction/broadcast', async (req, res) => {
   }
 });
 
+app.get('/consensus', async (req, res) => {
+  try {
+    const networkNodes = BC.getNetworkNodes();
+    const responsePromises = [];
+    networkNodes.forEach(async networkNodeUrl => {
+      responsePromises.push(axios.get(networkNodeUrl + '/blockchain'));
+    });
+
+    const blockchains = await Promise.all(responsePromises);
+    const chainLength = BC.chain.length;
+    let maxChainLength = chainLength;
+    let newLongestChain = null;
+    let newPendingTransactions = null;
+    blockchains.forEach(promiseResult => {
+      const blockchain = promiseResult.data.data;
+      if (blockchain.chain.length > maxChainLength) {
+        if (BC.chainIsValid(blockchain.chain)) {
+          maxChainLength = blockchain.chain.length;
+          newLongestChain = blockchain.chain;
+          newPendingTransactions = blockchain.pendingTransactions;
+        }
+      }
+    });
+
+    if (!newLongestChain) {
+      res.status(200).json({
+        success: true,
+        message: 'Current  chain is up to date.'
+      });
+    } else {
+      BC.chain = newLongestChain;
+      BC.pendingTransactions = newPendingTransactions;
+      res.status(200).json({
+        success: true,
+        message: 'Current chain is updated.'
+      });
+    }
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
 app.get('/', async (req, res) => {
   res.status(200).json({
     success: true,
     data: 'Hello @ Blockchain API!'
   });
 });
+
+app.get('/block/:blockHash', async (req, res) => {});
+
+app.get('/transaction/:transactionId', async (req, res) => {});
+
+app.get('/address/:address', async (req, res) => {});
 
 const server = app.listen(PORT, () => {
   console.log(
