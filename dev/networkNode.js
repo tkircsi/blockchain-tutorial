@@ -253,13 +253,6 @@ app.get('/consensus', async (req, res) => {
   }
 });
 
-app.get('/', async (req, res) => {
-  res.status(200).json({
-    success: true,
-    data: 'Hello @ Blockchain API!'
-  });
-});
-
 app.get('/block/:blockHash', async (req, res) => {
   const blockHash = req.params.blockHash;
   const block = BC.getBlock(blockHash);
@@ -294,13 +287,25 @@ app.get('/transaction/:transactionId', async (req, res) => {
 
 app.get('/address/:address', async (req, res) => {
   const address = req.params.address;
-  const { balance, addressTransactions } = BC.getAddressData(address);
+  const { addressBalance, addressTransactions } = BC.getAddressData(address);
   res.status(200).json({
     success: true,
-    address,
-    balance,
-    addressTransactions
+    addressData: {
+      addressBalance,
+      addressTransactions
+    }
   });
+});
+
+app.get('/', async (req, res) => {
+  res.status(200).json({
+    success: true,
+    data: 'Hello @ Blockchain API!'
+  });
+});
+
+app.get('/block-explorer', async (req, res) => {
+  res.sendFile('./block-explorer/index.html', { root: __dirname });
 });
 
 const server = app.listen(PORT, () => {

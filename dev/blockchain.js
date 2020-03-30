@@ -160,7 +160,7 @@ Blockchain.prototype.getAddressData = function(address) {
   }
   return {
     addressTransactions,
-    balance
+    addressBalance: balance
   };
 };
 
