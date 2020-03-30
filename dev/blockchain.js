@@ -126,4 +126,42 @@ Blockchain.prototype.chainIsValid = function(blockchain) {
   return true;
 };
 
+Blockchain.prototype.getBlock = function(blockHash) {
+  for (block of this.chain) {
+    if (block.hash === blockHash) return block;
+  }
+  return null;
+};
+
+Blockchain.prototype.getTransaction = function(transactionId) {
+  for (block of this.chain) {
+    for (tx of block.transactions) {
+      if (tx.transactionId === transactionId) return { block, tx };
+    }
+  }
+  return null;
+};
+
+Blockchain.prototype.getAddressData = function(address) {
+  const addressTransactions = [];
+  let balance = 0;
+  for (let block of this.chain) {
+    for (let tx of block.transactions) {
+      if (tx.sender === address || tx.recipient === address) {
+        if (tx.sender === address) {
+          balance -= tx.amount;
+        }
+        if (tx.recipient === address) {
+          balance += tx.amount;
+        }
+        addressTransactions.push(tx);
+      }
+    }
+  }
+  return {
+    addressTransactions,
+    balance
+  };
+};
+
 module.exports = Blockchain;

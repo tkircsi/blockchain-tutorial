@@ -260,11 +260,48 @@ app.get('/', async (req, res) => {
   });
 });
 
-app.get('/block/:blockHash', async (req, res) => {});
+app.get('/block/:blockHash', async (req, res) => {
+  const blockHash = req.params.blockHash;
+  const block = BC.getBlock(blockHash);
+  if (block) {
+    res.status(200).json({
+      success: true,
+      block
+    });
+  } else {
+    res.status(404).json({
+      success: true
+    });
+  }
+});
 
-app.get('/transaction/:transactionId', async (req, res) => {});
+app.get('/transaction/:transactionId', async (req, res) => {
+  const transactionId = req.params.transactionId;
+  const result = BC.getTransaction(transactionId);
 
-app.get('/address/:address', async (req, res) => {});
+  if (result) {
+    res.status(200).json({
+      success: true,
+      transaction: result.tx,
+      block: result.block
+    });
+  } else {
+    res.status(404).json({
+      success: true
+    });
+  }
+});
+
+app.get('/address/:address', async (req, res) => {
+  const address = req.params.address;
+  const { balance, addressTransactions } = BC.getAddressData(address);
+  res.status(200).json({
+    success: true,
+    address,
+    balance,
+    addressTransactions
+  });
+});
 
 const server = app.listen(PORT, () => {
   console.log(
